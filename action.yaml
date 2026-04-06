@@ -1,7 +1,5 @@
 name: 'Typst PDF Diff Action'
-description: >-
-  Build Typst PDFs for base and head revisions, generate PDF diffs, upload
-  artifacts, and optionally update a pull request comment.
+description: 'Build and diff Typst PDFs in GitHub Actions with artifact uploads.'
 author: 'conjikidow'
 
 inputs:
