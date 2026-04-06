@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# shellcheck disable=SC1091
-source "${GITHUB_ACTION_PATH}/src/common.sh"
-
 comment_file='build/meta/pr-comment.md'
 marker='<!-- typst-pdf-diff-review -->'
 
