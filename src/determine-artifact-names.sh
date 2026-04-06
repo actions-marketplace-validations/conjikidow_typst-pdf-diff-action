@@ -13,4 +13,4 @@ fi
 {
   echo "head_artifact_name=${repo_name}-head-pdfs-${suffix}"
   echo "diff_artifact_name=${repo_name}-diff-pdfs-${suffix}"
-} >> "$GITHUB_OUTPUT"
+} >>"$GITHUB_OUTPUT"
