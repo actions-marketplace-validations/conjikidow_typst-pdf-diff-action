@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # shellcheck disable=SC1091
-source "${GITHUB_ACTION_PATH}/src/common.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 require_cmd diff-pdf
 require_cmd xvfb-run
@@ -42,6 +42,7 @@ for file in ${TARGET_FILES}; do
 
   if [ "${diff_rc}" -eq 0 ]; then
     printf '%s\tno-diff\t\n' "${file}" >>"${result_tsv}"
+    rm -f "${diff_pdf}"
     continue
   fi
   if [ "${diff_rc}" -ne 1 ]; then

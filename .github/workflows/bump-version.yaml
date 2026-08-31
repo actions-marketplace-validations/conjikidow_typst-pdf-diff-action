@@ -14,20 +14,24 @@ on:
           - minor
           - patch
 
+permissions: {}
+
 jobs:
 
   bump-version:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
 
     steps:
-      - uses: conjikidow/bump-version-action@7e121680654e60966406d6b73861493633ef24fe # v3.1.1
+      - uses: conjikidow/bump-version-action@f3a9763279155551196c80dab1c1891cbc51df9f # v4.0.2
         with:
           label-major: 'update::major'
           label-minor: 'update::minor'
           label-patch: 'update::patch'
-          manual-bump-type: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bump_type || '' }}
+          manual-bump-type: ${{ inputs.bump_type }}
           labels-to-add: 'automated,versioning'
           create-release: 'true'

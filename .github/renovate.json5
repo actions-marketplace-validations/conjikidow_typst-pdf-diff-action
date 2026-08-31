@@ -1,20 +1,23 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
-    'config:recommended',
-    'helpers:pinGitHubActionDigests',
+    'config:best-practices',
   ],
+  minimumReleaseAge: '3 days',
   customManagers: [
     {
       customType: 'regex',
       managerFilePatterns: [
         '/^\\.github/workflows/.*\\.ya?ml$/',
       ],
+      matchStringsStrategy: 'recursive',
       matchStrings: [
-        "uses: commitizen-tools/setup-cz@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+version: '(?<currentValue>[^'\\s]+)'",
+        "uses: commitizen-tools/setup-cz@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+version: '[^'\\s]+'",
+        "\\n\\s+version: '(?<currentValue>[^'\\s]+)'",
       ],
       datasourceTemplate: 'pypi',
-      depNameTemplate: 'commitizen',
+      depNameTemplate: 'commitizen-tools/commitizen',
+      packageNameTemplate: 'commitizen',
     },
     {
       customType: 'regex',
@@ -38,26 +41,32 @@
         'renovate@(?<currentValue>\\S+)',
       ],
       datasourceTemplate: 'npm',
-      depNameTemplate: 'renovate',
+      depNameTemplate: 'renovatebot/renovate',
+      packageNameTemplate: 'renovate',
     },
     {
       customType: 'regex',
       managerFilePatterns: [
         '/^\\.github/workflows/ci\\.ya?ml$/',
       ],
+      matchStringsStrategy: 'recursive',
       matchStrings: [
-        'markdownlint-cli2@(?<currentValue>\\S+)',
+        "uses: rvben/rumdl@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+version: '[^'\\s]+'",
+        "\\n\\s+version: '(?<currentValue>[^'\\s]+)'",
       ],
-      datasourceTemplate: 'npm',
-      depNameTemplate: 'markdownlint-cli2',
+      datasourceTemplate: 'pypi',
+      depNameTemplate: 'rvben/rumdl',
+      packageNameTemplate: 'rumdl',
     },
     {
       customType: 'regex',
       managerFilePatterns: [
         '/^\\.github/workflows/ci\\.ya?ml$/',
       ],
+      matchStringsStrategy: 'recursive',
       matchStrings: [
-        "uses: reviewdog/action-setup@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+reviewdog_version: '(?<currentValue>[^'\\s]+)'",
+        "uses: reviewdog/action-setup@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+reviewdog_version: '[^'\\s]+'",
+        "\\n\\s+reviewdog_version: '(?<currentValue>[^'\\s]+)'",
       ],
       datasourceTemplate: 'github-releases',
       depNameTemplate: 'reviewdog/reviewdog',
@@ -71,18 +80,21 @@
         'json5@(?<currentValue>\\S+)',
       ],
       datasourceTemplate: 'npm',
-      depNameTemplate: 'json5',
+      depNameTemplate: 'json5/json5',
+      packageNameTemplate: 'json5',
     },
     {
       customType: 'regex',
       managerFilePatterns: [
         '/^\\.github/workflows/ci\\.ya?ml$/',
       ],
+      matchStringsStrategy: 'recursive',
       matchStrings: [
-        "TAPLO_VERSION: '(?<currentValue>[^'\\s]+)'",
+        "uses: tombi-toml/setup-tombi@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+version: '[^'\\s]+'",
+        "\\n\\s+version: '(?<currentValue>[^'\\s]+)'",
       ],
       datasourceTemplate: 'github-releases',
-      depNameTemplate: 'tamasfe/taplo',
+      depNameTemplate: 'tombi-toml/tombi',
     },
     {
       customType: 'regex',
@@ -93,21 +105,72 @@
         'yamllint==(?<currentValue>[^"\\s]+)',
       ],
       datasourceTemplate: 'pypi',
-      depNameTemplate: 'yamllint',
+      depNameTemplate: 'adrienverge/yamllint',
+      packageNameTemplate: 'yamllint',
     },
     {
       customType: 'regex',
       managerFilePatterns: [
         '/^\\.github/workflows/ci\\.ya?ml$/',
       ],
+      matchStringsStrategy: 'recursive',
       matchStrings: [
-        "uses: j178/prek-action@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+prek-version: '(?<currentValue>[^'\\s]+)'",
+        "uses: j178/prek-action@[a-f0-9]{40}[^\\n]*\\n(?:\\s+with:\\n(?:\\s+[^\\n]+\\n)*?)\\s+prek-version: '[^'\\s]+'",
+        "\\n\\s+prek-version: '(?<currentValue>[^'\\s]+)'",
       ],
       datasourceTemplate: 'github-releases',
       depNameTemplate: 'j178/prek',
     },
   ],
   packageRules: [
+    {
+      matchManagers: [
+        'github-actions',
+      ],
+      matchDepTypes: [
+        'action',
+      ],
+      allowedVersions: '/^v?\\d+\\.\\d+\\.\\d+$/',
+    },
+    {
+      matchDepNames: [
+        'commitizen-tools/commitizen',
+      ],
+      groupName: 'commitizen',
+    },
+    {
+      matchDepNames: [
+        'rvben/rumdl',
+        'rvben/rumdl-pre-commit',
+      ],
+      groupName: 'rumdl',
+    },
+    {
+      matchDepNames: [
+        'tombi-toml/setup-tombi',
+        'tombi-toml/tombi',
+        'tombi-toml/tombi-pre-commit',
+      ],
+      groupName: 'tombi',
+    },
+    {
+      matchDepNames: [
+        'crate-ci/typos',
+      ],
+      groupName: 'typos',
+    },
+    {
+      matchDepNames: [
+        'adrienverge/yamllint',
+      ],
+      groupName: 'yamllint',
+    },
+    {
+      matchDepNames: [
+        'ghcr.io/zizmorcore/zizmor',
+      ],
+      minimumReleaseAge: '4 days',
+    },
     {
       matchFileNames: [
         '.github/workflows/**',
@@ -127,6 +190,7 @@
     {
       matchFileNames: [
         '.github/workflows/**',
+        'action.yaml',
       ],
       matchUpdateTypes: [
         'patch',
@@ -135,7 +199,7 @@
     },
     {
       matchDepNames: [
-        'renovate',
+        'renovatebot/renovate',
       ],
       matchFileNames: [
         '.github/workflows/ci.yaml',
@@ -147,7 +211,7 @@
     },
     {
       matchDepNames: [
-        'renovate',
+        'renovatebot/renovate',
       ],
       matchFileNames: [
         '.github/workflows/ci.yaml',
