@@ -1,89 +1,86 @@
-name: 'Typst PDF Diff Action'
-description: 'Build and diff Typst PDFs in GitHub Actions with artifact uploads.'
-author: 'conjikidow'
+name: Typst PDF Diff Action
+description: 'Generate PDF diffs for Typst documents'
+author: conjikidow
+
+branding:
+  icon: file-text
+  color: green
 
 inputs:
   target-files:
     description: 'Space-separated Typst entrypoint files to compile.'
     required: true
   typst-version:
-    description: 'The Typst version to install.'
+    description: 'Version of Typst to use.'
     required: false
     default: 'latest'
-  github-token:
-    description: >-
-      The GitHub token for checkout, artifact upload, and optional comment
-      updates.
-    required: false
-    default: ${{ github.token }}
   submodules:
-    description: >-
-      Submodule mode passed to actions/checkout. Use false, true, or recursive.
+    description: 'Submodule mode passed to `actions/checkout`: `false`, `true`, or `recursive`.'
     required: false
-    default: 'false'
-  head-ref:
+    default: false
+  base-revision:
     description: >-
-      The head revision to compare. Defaults to the pull request head SHA or
-      github.sha.
-    required: false
-    default: ''
-  base-ref:
-    description: >-
-      The base revision to compare. Defaults to the merge-base of the pull
-      request or github.event.before.
+      Base revision to compare, as a branch, tag, or commit SHA.
+      Defaults to the merge-base of the PR or `github.event.before`.
     required: false
     default: ''
-  head-dir:
+  head-revision:
     description: >-
-      An existing working tree to build the head revision from. When set
-      together with base-dir, the action does not check out any sources.
-    required: false
-    default: ''
-  base-dir:
-    description: >-
-      An existing working tree to build the base revision from. Must be set
-      together with head-dir.
+      Head revision to compare, as a branch, tag, or commit SHA.
+      Defaults to the PR head SHA or `github.sha`.
     required: false
     default: ''
   post-comment:
-    description: 'Whether to update a pull request comment with diff results.'
+    description: 'Whether to post a PR comment with the diff results.'
     required: false
-    default: 'true'
+    default: true
   comment-mode:
-    description: 'Comment update mode. Supported values are replace and append.'
+    description: 'Handling of earlier comments: `replace` deletes them, `append` keeps them.'
     required: false
-    default: 'replace'
+    default: replace
   fail-on-comment-error:
-    description: 'Whether to fail the action when comment updates fail.'
+    description: 'Whether to fail the action when posting or deleting comments fails.'
     required: false
-    default: 'false'
+    default: false
   upload-artifacts:
-    description: 'Whether to upload head and diff PDFs as workflow artifacts.'
+    description: 'Whether to upload the head and diff PDFs as workflow artifacts.'
     required: false
-    default: 'true'
+    default: true
+  github-token:
+    description: >-
+      Token used to authenticate with GitHub.
+      Needs `contents: read` for the checkout and `pull-requests: write` for the comment.
+    required: false
+    default: ${{ github.token }}
+  base-dir:
+    description: 'Existing working tree to build the base revision from. Requires `head-dir`.'
+    required: false
+    default: ''
+  head-dir:
+    description: 'Existing working tree to build the head revision from. Requires `base-dir`.'
+    required: false
+    default: ''
 
 outputs:
   has-diff:
-    description: '`true` when at least one target file has a PDF diff.'
-    value: ${{ steps.generate-diff.outputs.has_diff }}
+    description: '`true` when at least one target file produces a diff PDF.'
+    value: ${{ steps.generate-diff.outputs.has-diff }}
   head-artifact-url:
-    description: >-
-      The uploaded head PDF artifact URL when artifact upload is enabled.
+    description: 'URL of the uploaded head PDF artifact. Empty when `upload-artifacts` is `false`.'
     value: ${{ steps.upload-head-pdfs.outputs.artifact-url }}
   diff-artifact-url:
-    description: >-
-      The uploaded diff PDF artifact URL when a diff artifact is uploaded.
+    description: 'URL of the uploaded diff PDF artifact. Empty when no diff artifact was uploaded.'
     value: ${{ steps.upload-diff-pdfs.outputs.artifact-url }}
 
 runs:
-  using: 'composite'
+  using: composite
+
   steps:
     - name: Check runner platform
       shell: bash
       run: |
-        if [ "${RUNNER_OS}" != 'Linux' ]; then
-          echo '::error title=Unsupported runner::' \
-            'This action currently supports Linux runners only.'
+        if [[ ${RUNNER_OS} != 'Linux' ]]; then
+          echo '::error title=Unsupported runner::This action currently supports Linux runners only.'
           exit 1
         fi
 
@@ -91,86 +88,78 @@ runs:
       shell: bash
       env:
         SUBMODULES: ${{ inputs.submodules }}
-        HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ inputs.base-ref }}
-        HEAD_DIR: ${{ inputs.head-dir }}
+        BASE_REVISION: ${{ inputs.base-revision }}
+        HEAD_REVISION: ${{ inputs.head-revision }}
+        POST_COMMENT: ${{ inputs.post-comment }}
+        COMMENT_MODE: ${{ inputs.comment-mode }}
+        FAIL_ON_COMMENT_ERROR: ${{ inputs.fail-on-comment-error }}
+        UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
         BASE_DIR: ${{ inputs.base-dir }}
-      run: bash "${{ github.action_path }}/src/validate-inputs.sh"
+        HEAD_DIR: ${{ inputs.head-dir }}
+      run: bash "${GITHUB_ACTION_PATH}/src/validate-inputs.sh"
 
     - name: Resolve comparison revisions
-      id: resolve-refs
-      if: ${{ inputs.head-dir == '' }}
+      id: resolve-revisions
+      if: inputs.head-dir == ''
       shell: bash
       env:
-        INPUT_HEAD_REF: ${{ inputs.head-ref }}
-        INPUT_BASE_REF: ${{ inputs.base-ref }}
         GH_TOKEN: ${{ inputs.github-token }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
-        GITHUB_SHA: ${{ github.sha }}
-        GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        GH_REPO: ${{ github.repository }}
         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      run: bash "${{ github.action_path }}/src/resolve-refs.sh"
+        PUSH_BEFORE_SHA: ${{ github.event.before }}
+        BASE_REVISION: ${{ inputs.base-revision }}
+        HEAD_REVISION: ${{ inputs.head-revision }}
+      run: bash "${GITHUB_ACTION_PATH}/src/resolve-revisions.sh"
 
     - name: Determine display revisions
-      id: display-refs
+      id: determine-display-revisions
       shell: bash
       env:
-        RESOLVED_HEAD_REF: ${{ steps.resolve-refs.outputs.head_ref }}
-        RESOLVED_BASE_REF: ${{ steps.resolve-refs.outputs.base_ref }}
-        HEAD_DIR: ${{ inputs.head-dir }}
         BASE_DIR: ${{ inputs.base-dir }}
-      run: bash "${{ github.action_path }}/src/determine-display-refs.sh"
+        HEAD_DIR: ${{ inputs.head-dir }}
+        RESOLVED_BASE_REVISION: ${{ steps.resolve-revisions.outputs.base-revision }}
+        RESOLVED_HEAD_REVISION: ${{ steps.resolve-revisions.outputs.head-revision }}
+      run: bash "${GITHUB_ACTION_PATH}/src/determine-display-revisions.sh"
 
     - name: Determine artifact names
       id: determine-artifact-names
       shell: bash
       env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
-        HEAD_REF: ${{ steps.display-refs.outputs.head_ref }}
-      run: bash "${{ github.action_path }}/src/determine-artifact-names.sh"
+        DISPLAY_HEAD_REVISION: ${{ steps.determine-display-revisions.outputs.head-revision }}
+      run: bash "${GITHUB_ACTION_PATH}/src/determine-artifact-names.sh"
 
-    - name: Checkout the head revision
-      if: ${{ inputs.head-dir == '' }}
+    - name: Check out the base revision
+      if: inputs.head-dir == ''
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        path: head-src
-        ref: ${{ steps.resolve-refs.outputs.head_ref }}
-        submodules: ${{ inputs.submodules }}
+        ref: ${{ steps.resolve-revisions.outputs.base-revision }}
         token: ${{ inputs.github-token }}
-        fetch-depth: 1
         persist-credentials: false
-
-    - name: Checkout the base revision
-      if: ${{ inputs.head-dir == '' }}
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
         path: base-src
-        ref: ${{ steps.resolve-refs.outputs.base_ref }}
-        submodules: ${{ inputs.submodules }}
-        token: ${{ inputs.github-token }}
         fetch-depth: 1
+        submodules: ${{ inputs.submodules }}
+
+    - name: Check out the head revision
+      if: inputs.head-dir == ''
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ steps.resolve-revisions.outputs.head-revision }}
+        token: ${{ inputs.github-token }}
         persist-credentials: false
+        path: head-src
+        fetch-depth: 1
+        submodules: ${{ inputs.submodules }}
 
     - name: Install Typst
-      uses: typst-community/setup-typst@40d32bb6ccb235bd7f5164cb47cfd40a5ea3a314 # v5.2.0
+      uses: typst-community/setup-typst@fee4b65b091cc546f02ce3be15fad8760f38a108 # v5.3.0
       with:
         typst-version: ${{ inputs.typst-version }}
 
     - name: Install PDF diff tools
       shell: bash
-      run: bash "${{ github.action_path }}/src/install-pdf-diff-tools.sh"
-
-    - name: Build head PDFs
-      shell: bash
-      env:
-        TARGET_FILES: ${{ inputs.target-files }}
-        SOURCE_DIR: ${{ inputs.head-dir || 'head-src' }}
-        OUTPUT_DIR: build/head
-      run: bash "${{ github.action_path }}/src/build-pdfs.sh"
+      run: bash "${GITHUB_ACTION_PATH}/src/install-pdf-diff-tools.sh"
 
     - name: Build base PDFs
       shell: bash
@@ -178,63 +167,69 @@ runs:
         TARGET_FILES: ${{ inputs.target-files }}
         SOURCE_DIR: ${{ inputs.base-dir || 'base-src' }}
         OUTPUT_DIR: build/base
-      run: bash "${{ github.action_path }}/src/build-pdfs.sh"
+      run: bash "${GITHUB_ACTION_PATH}/src/build-pdfs.sh"
+
+    - name: Build head PDFs
+      shell: bash
+      env:
+        TARGET_FILES: ${{ inputs.target-files }}
+        SOURCE_DIR: ${{ inputs.head-dir || 'head-src' }}
+        OUTPUT_DIR: build/head
+      run: bash "${GITHUB_ACTION_PATH}/src/build-pdfs.sh"
 
     - name: Generate PDF diff
       id: generate-diff
       shell: bash
       env:
         TARGET_FILES: ${{ inputs.target-files }}
-        BASE_DIR: build/base
-        HEAD_DIR: build/head
+        BASE_PDF_DIR: build/base
+        HEAD_PDF_DIR: build/head
         DIFF_DIR: build/diff
         META_DIR: build/meta
-      run: bash "${{ github.action_path }}/src/generate-diff.sh"
+      run: bash "${GITHUB_ACTION_PATH}/src/generate-diff.sh"
 
     - name: Upload head PDFs artifact
       id: upload-head-pdfs
-      if: ${{ inputs.upload-artifacts == 'true' }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: inputs.upload-artifacts == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: ${{ steps.determine-artifact-names.outputs.head_artifact_name }}
-        path: build/head/**/*.pdf
+        name: ${{ steps.determine-artifact-names.outputs.head-artifact-name }}
+        path: 'build/head/**/*.pdf'
         if-no-files-found: error
 
     - name: Upload diff PDFs artifact
       id: upload-diff-pdfs
-      if: ${{ inputs.upload-artifacts == 'true' && steps.generate-diff.outputs.has_diff == 'true' }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: >-
+        inputs.upload-artifacts == 'true'
+        && steps.generate-diff.outputs.has-diff == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: ${{ steps.determine-artifact-names.outputs.diff_artifact_name }}
-        path: build/diff/**/*.pdf
+        name: ${{ steps.determine-artifact-names.outputs.diff-artifact-name }}
+        path: 'build/diff/**/*.pdf'
         if-no-files-found: error
 
-    - name: Build PR comment body
-      if: ${{ inputs.post-comment == 'true' }}
+    - name: Build pull request comment body
+      id: build-comment
+      if: inputs.post-comment == 'true'
       shell: bash
       env:
-        RESULT_TSV: ${{ steps.generate-diff.outputs.result_tsv }}
-        HAS_DIFF: ${{ steps.generate-diff.outputs.has_diff }}
-        HEAD_REF: ${{ steps.display-refs.outputs.head_ref }}
-        BASE_REF: ${{ steps.display-refs.outputs.base_ref }}
-        SUPPLIED_HEAD_DIR: ${{ inputs.head-dir }}
+        HEAD_DIR: ${{ inputs.head-dir }}
+        DISPLAY_BASE_REVISION: ${{ steps.determine-display-revisions.outputs.base-revision }}
+        DISPLAY_HEAD_REVISION: ${{ steps.determine-display-revisions.outputs.head-revision }}
+        RESULT_TSV: ${{ steps.generate-diff.outputs.result-tsv }}
         HEAD_ARTIFACT_URL: ${{ steps.upload-head-pdfs.outputs.artifact-url }}
         DIFF_ARTIFACT_URL: ${{ steps.upload-diff-pdfs.outputs.artifact-url }}
-      run: bash "${{ github.action_path }}/src/build-comment.sh"
+        COMMENT_FILE: build/meta/pr-comment.md
+      run: bash "${GITHUB_ACTION_PATH}/src/build-comment.sh"
 
-    - name: Update PR comment
-      if: ${{ inputs.post-comment == 'true' }}
+    - name: Post pull request comment
+      if: inputs.post-comment == 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-        COMMENT_MODE: ${{ inputs.comment-mode }}
-        FAIL_ON_COMMENT_ERROR: ${{ inputs.fail-on-comment-error }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GH_REPO: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
-        COMMENT_FILE: build/meta/pr-comment.md
-      run: bash "${{ github.action_path }}/src/post-comment.sh"
-
-branding:
-  icon: 'file-text'
-  color: 'green'
+        COMMENT_MODE: ${{ inputs.comment-mode }}
+        FAIL_ON_COMMENT_ERROR: ${{ inputs.fail-on-comment-error == 'true' }}
+        COMMENT_FILE: ${{ steps.build-comment.outputs.comment-file }}
+      run: bash "${GITHUB_ACTION_PATH}/src/post-comment.sh"

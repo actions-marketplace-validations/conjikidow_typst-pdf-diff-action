@@ -1,49 +1,50 @@
 #!/bin/bash
 set -euo pipefail
 
-comment_file='build/meta/pr-comment.md'
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 marker='<!-- typst-pdf-diff-review -->'
 has_missing='false'
 missing_count=0
 diff_count=0
 no_diff_count=0
 
-ref_note=''
-if [ -n "${SUPPLIED_HEAD_DIR}" ]; then
-  ref_note=' (caller-supplied working tree)'
+revision_note=''
+if [[ -n ${HEAD_DIR} ]]; then
+  revision_note=' (caller-supplied working tree)'
 fi
 
 while IFS=$'\t' read -r _file status _diff_pdf; do
   case "${status}" in
-  has-diff) diff_count=$((diff_count + 1)) ;;
-  no-diff) no_diff_count=$((no_diff_count + 1)) ;;
-  missing-base | missing-head)
-    has_missing='true'
-    missing_count=$((missing_count + 1))
-    ;;
+    has-diff) diff_count="$((diff_count + 1))" ;;
+    no-diff) no_diff_count="$((no_diff_count + 1))" ;;
+    missing-base | missing-head)
+      has_missing='true'
+      missing_count="$((missing_count + 1))"
+      ;;
   esac
-done <"${RESULT_TSV}"
+done < "${RESULT_TSV}"
 
 {
   echo "${marker}"
   echo '## Typst PDF Diff Review'
   echo
-  echo "- Base revision: \`${BASE_REF}\`${ref_note}"
-  echo "- Head revision: \`${HEAD_REF}\`${ref_note}"
-  if [ -n "${HEAD_ARTIFACT_URL}" ]; then
+  echo "- Base revision: \`${DISPLAY_BASE_REVISION}\`${revision_note}"
+  echo "- Head revision: \`${DISPLAY_HEAD_REVISION}\`${revision_note}"
+  if [[ -n ${HEAD_ARTIFACT_URL} ]]; then
     echo "- Head PDFs artifact: [typst-head-pdfs](${HEAD_ARTIFACT_URL})"
   fi
-  if [ "${diff_count}" -gt 0 ] && [ -n "${DIFF_ARTIFACT_URL}" ]; then
+  if [[ ${diff_count} -gt 0 && -n ${DIFF_ARTIFACT_URL} ]]; then
     echo "- Diff PDFs artifact: [typst-diff-pdfs](${DIFF_ARTIFACT_URL})"
   fi
-  if [ "${diff_count}" -gt 0 ]; then
-    if [ "${has_missing}" = 'true' ]; then
+  if [[ ${diff_count} -gt 0 ]]; then
+    if [[ ${has_missing} == 'true' ]]; then
       echo "- PDF diff: Generated for ${diff_count} file(s); skipped ${missing_count} missing file(s)."
     else
       echo "- PDF diff: Differences detected in ${diff_count} file(s)."
     fi
   else
-    if [ "${has_missing}" = 'true' ]; then
+    if [[ ${has_missing} == 'true' ]]; then
       echo '- PDF diff: Skipped for files missing on either the base or head revision.'
     else
       echo '- PDF diff: No differences detected.'
@@ -54,12 +55,14 @@ done <"${RESULT_TSV}"
   echo '| --- | --- |'
   while IFS=$'\t' read -r file status _diff_pdf; do
     case "${status}" in
-    has-diff) status_text='diff found' ;;
-    no-diff) status_text='no diff' ;;
-    missing-base) status_text='base missing' ;;
-    missing-head) status_text='head missing' ;;
-    *) status_text="${status}" ;;
+      has-diff) status_text='diff found' ;;
+      no-diff) status_text='no diff' ;;
+      missing-base) status_text='base missing' ;;
+      missing-head) status_text='head missing' ;;
+      *) status_text="${status}" ;;
     esac
     printf "| \`%s\` | %s |\n" "${file}" "${status_text}"
-  done <"${RESULT_TSV}"
-} >"${comment_file}"
+  done < "${RESULT_TSV}"
+} > "${COMMENT_FILE}"
+
+write_output 'comment-file' "${COMMENT_FILE}"

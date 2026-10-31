@@ -1,38 +1,36 @@
 #!/bin/bash
 set -euo pipefail
 
-tests_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+source "$(dirname "${BASH_SOURCE[0]}")/../src/common.sh"
+
+tests_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 src_dir="${tests_dir}/../src"
 
-# shellcheck disable=SC1091
-source "${src_dir}/common.sh"
-
-work_dir=$(mktemp -d)
+work_dir="$(mktemp -d)"
 trap 'rm -rf "${work_dir}"' EXIT
 
 result_tsv="${work_dir}/diff-results.tsv"
-printf '%s\thas-diff\t%s\n' 'main.typ' 'build/diff/main.pdf' >"${result_tsv}"
+printf '%s\thas-diff\t%s\n' 'main.typ' 'build/diff/main.pdf' > "${result_tsv}"
 
 status=0
 
 run_case() {
-  local name=$1
-  local supplied_head_dir=$2
-  local note=$3
+  local name="$1"
+  local supplied_head_dir="$2"
+  local note="$3"
 
-  # build-comment.sh writes to a fixed path relative to the working directory.
-  local case_dir="${work_dir}/${name}"
-  mkdir -p "${case_dir}/build/meta"
-
-  (
-    cd "${case_dir}"
-    RESULT_TSV="${result_tsv}" HAS_DIFF='true' HEAD_REF='aaa111' BASE_REF='bbb222' \
-      HEAD_ARTIFACT_URL='' DIFF_ARTIFACT_URL='' SUPPLIED_HEAD_DIR="${supplied_head_dir}" \
-      bash "${src_dir}/build-comment.sh"
-  )
-
-  local body="${case_dir}/build/meta/pr-comment.md"
+  local body="${work_dir}/${name}.md"
+  local outputs="${work_dir}/${name}.out"
   local line
+
+  RESULT_TSV="${result_tsv}" DISPLAY_BASE_REVISION='bbb222' DISPLAY_HEAD_REVISION='aaa111' \
+    HEAD_ARTIFACT_URL='' DIFF_ARTIFACT_URL='' HEAD_DIR="${supplied_head_dir}" COMMENT_FILE="${body}" \
+    GITHUB_OUTPUT="${outputs}" bash "${src_dir}/build-comment.sh"
+
+  if ! grep -qxF -- "comment-file=${body}" "${outputs}"; then
+    log_error "${name}: expected the comment-file output to be '${body}'."
+    status=1
+  fi
 
   for line in "- Base revision: \`bbb222\`${note}" "- Head revision: \`aaa111\`${note}"; do
     if ! grep -qxF -- "${line}" "${body}"; then

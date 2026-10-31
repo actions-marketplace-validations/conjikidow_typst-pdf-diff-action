@@ -1,175 +1,241 @@
 # Typst PDF Diff Action
 
+[![Marketplace](https://img.shields.io/badge/Marketplace-Typst_PDF_Diff_Action-2088FF.svg?style=flat&logo=githubactions&logoColor=white)](https://github.com/marketplace/actions/typst-pdf-diff-action)
+[![Release](https://img.shields.io/github/v/release/conjikidow/typst-pdf-diff-action?style=flat&logo=github&logoColor=white&label=release)](https://github.com/conjikidow/typst-pdf-diff-action/releases/latest)
+[![Typst](https://img.shields.io/badge/typst-239DAD.svg?style=flat&logo=typst&logoColor=white)](https://typst.app/)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat)](#license)
+[![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
+[![CI](https://github.com/conjikidow/typst-pdf-diff-action/actions/workflows/ci.yaml/badge.svg)](https://github.com/conjikidow/typst-pdf-diff-action/actions/workflows/ci.yaml)
+[![Test](https://github.com/conjikidow/typst-pdf-diff-action/actions/workflows/test.yaml/badge.svg)](https://github.com/conjikidow/typst-pdf-diff-action/actions/workflows/test.yaml)
+
 A GitHub Action to generate PDF diffs for Typst documents.
 
 > [!WARNING]
-> This project is in early development. The API may change in future releases.
+> This project is in early development.
+> The API may change in future releases.
 
 ## Features
 
 - Builds Typst documents from separate base and head revisions.
 - Generates diff PDFs with [`diff-pdf`](https://github.com/vslavik/diff-pdf).
 - Uploads head PDFs and diff PDFs as workflow artifacts.
-- Optionally creates or updates a pull request comment.
+- Optionally posts a pull request (PR) comment.
 
 ## Usage
 
+The action requires a Linux runner with passwordless `sudo apt-get`, `gh`, and `jq`,
+which the GitHub-hosted Ubuntu runner images provide.
+
 ### Workflow Example
 
-The following workflow runs on pull requests, compares the PR head against
-the merge-base (the commit where the PR branched off the base branch),
-uploads the generated PDFs, and updates a PR comment.
+The following workflow runs on PRs, compares the PR head against the merge-base
+(the commit where the PR branched off the base branch), uploads the generated PDFs, and posts a PR comment.
 
 ```yaml
-name: Typst PDF Diff
+name: Generate Typst PDF diff
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  typst-pdf-diff:
+  generate-typst-pdf-diff:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+
     steps:
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.3.0
+        uses: conjikidow/typst-pdf-diff-action@v0.4.0
         with:
           target-files: main.typ
 ```
 
 The examples reference actions by tag for readability.
-For production workflows, consider pinning each action to a full-length commit SHA,
-as [GitHub recommends](https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions).
+For production workflows, consider pinning each action to a full-length commit SHA, as [GitHub recommends](https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions).
 Releases of this action are immutable, so its own tags are already locked to a single commit.
 
-If your Typst project uses submodules, set `submodules: 'recursive'` and pass a
-token that can access those submodules.
+If your Typst project uses submodules,
+set `submodules: recursive` and pass a token that can access your repository and those submodules.
 
 ```yaml
-name: Typst PDF Diff
+name: Generate Typst PDF diff
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 env:
   TYPST_TARGET_FILES: paper/main.typ slides/main.typ
 
 jobs:
-  typst-pdf-diff:
+  generate-typst-pdf-diff:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
+    permissions: {}
+
     steps:
-      - uses: actions/create-github-app-token@v3
-        id: generate-token
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          repositories: |
+            ${{ github.event.repository.name }}
+            private-submodule
+          permission-contents: read
+          permission-pull-requests: write
+
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.3.0
+        uses: conjikidow/typst-pdf-diff-action@v0.4.0
         with:
           target-files: ${{ env.TYPST_TARGET_FILES }}
-          github-token: ${{ steps.generate-token.outputs.token }}
-          submodules: 'recursive'
+          submodules: recursive
+          github-token: ${{ steps.app-token.outputs.token }}
 ```
 
 > [!IMPORTANT]
+> Without `owner` or `repositories`, the token reaches only the repository the workflow runs in,
+> so list every repository it has to read, this one included.
 > A GitHub App installation token is scoped to a single account,
 > so it cannot read submodules owned by another user or organization.
 > `actions/checkout` fails the whole job when any submodule cannot be fetched.
-> If your submodules span several owners, prepare the working trees yourself as described in
-> [Bring Your Own Working Trees](#bring-your-own-working-trees).
+> If your repository and its submodules span several owners,
+> prepare the working trees yourself as described in [Bring Your Own Working Trees](#bring-your-own-working-trees).
 
-For non-PR events, set `head-ref` and `base-ref` explicitly if you do not want
-to rely on the action's automatic revision resolution.
+For non-PR events, set `base-revision` and `head-revision` explicitly
+if you do not want to rely on the action's automatic revision resolution.
+
+### Permissions
+
+The token passed to `github-token` is only reached by the steps that talk to GitHub,
+so what it needs depends on which of them run.
+
+| Scope                  | Needed for                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| `contents: read`       | Resolving the revisions and checking them out. Not needed when `base-dir` and `head-dir` are set. |
+| `pull-requests: write` | Posting the PR comment and deleting earlier ones. Not needed when `post-comment` is `false`.      |
+
+The default `${{ github.token }}` carries whatever the workflow grants it,
+so grant those scopes in the job as the first example above does.
+
+The `permissions:` block does not reach a token you pass yourself.
+A GitHub App installation token, as in the second example above, needs the same access granted to the app itself.
+None of the steps that act on your repository use the job's own `GITHUB_TOKEN`,
+which is why that example zeroes it with `permissions: {}`.
 
 ### Inputs
 
-| Name                    | Description                                                                        | Required | Default               |
-| ----------------------- | ---------------------------------------------------------------------------------- | -------- | --------------------- |
-| `target-files`          | Space-separated Typst entrypoint files to compile.                                 | Yes      | -                     |
-| `typst-version`         | The Typst version to install.                                                      | No       | `'latest'`            |
-| `github-token`          | The GitHub Token for checkout, artifact upload, and comments.                      | No       | `${{ github.token }}` |
-| `submodules`            | `actions/checkout` submodule mode: `false`, `true`, or `recursive`.                | No       | `'false'`             |
-| `head-ref`              | Head revision to compare. If empty, uses the PR head SHA or `github.sha`.          | No       | `''`                  |
-| `base-ref`              | Base revision to compare. If empty, uses the merge-base or `github.event.before`.  | No       | `''`                  |
-| `post-comment`          | Whether to update a pull request comment with diff results.                        | No       | `'true'`              |
-| `comment-mode`          | Comment update mode: `replace` or `append`.                                        | No       | `'replace'`           |
-| `fail-on-comment-error` | Whether to fail the action when PR comment updates fail.                           | No       | `'false'`             |
-| `upload-artifacts`      | Whether to upload head and diff PDFs as workflow artifacts.                        | No       | `'true'`              |
+| Name                    | Description                                                                                                                 | Required | Default               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
+| `target-files`          | Space-separated Typst entrypoint files to compile.                                                                          | Yes      | -                     |
+| `typst-version`         | Version of Typst to use.                                                                                                    | No       | `'latest'`            |
+| `submodules`            | Submodule mode passed to `actions/checkout`: `false`, `true`, or `recursive`.                                               | No       | `false`               |
+| `base-revision`         | Base revision to compare, as a branch, tag, or commit SHA. Defaults to the merge-base of the PR or `github.event.before`.   | No       | `''`                  |
+| `head-revision`         | Head revision to compare, as a branch, tag, or commit SHA. Defaults to the PR head SHA or `github.sha`.                     | No       | `''`                  |
+| `post-comment`          | Whether to post a PR comment with the diff results.                                                                         | No       | `true`                |
+| `comment-mode`          | Handling of earlier comments: `replace` deletes them, `append` keeps them.                                                  | No       | `replace`             |
+| `fail-on-comment-error` | Whether to fail the action when posting or deleting comments fails.                                                         | No       | `false`               |
+| `upload-artifacts`      | Whether to upload the head and diff PDFs as workflow artifacts.                                                             | No       | `true`                |
+| `github-token`          | Token used to authenticate with GitHub. Needs `contents: read` for the checkout and `pull-requests: write` for the comment. | No       | `${{ github.token }}` |
 
 `target-files` is interpreted as a space-separated list, for example `main.typ appendix.typ`.
 
 > [!NOTE]
-> `post-comment: 'true'` is intended for `pull_request` events.
-> On other events, the action skips pull request comment updates.
+> `post-comment: true` is intended for `pull_request` events.
+> On other events, the action skips the PR comment.
 
 #### Advanced Inputs
 
 These are only needed when the action cannot check out the sources itself.
 See [Bring Your Own Working Trees](#bring-your-own-working-trees).
 
-| Name       | Description                                                                        | Required | Default |
-| ---------- | ---------------------------------------------------------------------------------- | -------- | ------- |
-| `head-dir` | Existing working tree to build the head revision from. Disables checkout when set. | No       | `''`    |
-| `base-dir` | Existing working tree to build the base revision from. Requires `head-dir`.        | No       | `''`    |
+| Name       | Description                                                                 | Required | Default |
+| ---------- | --------------------------------------------------------------------------- | -------- | ------- |
+| `base-dir` | Existing working tree to build the base revision from. Requires `head-dir`. | No       | `''`    |
+| `head-dir` | Existing working tree to build the head revision from. Requires `base-dir`. | No       | `''`    |
 
-Both must be set together, and `submodules`, `head-ref`, and `base-ref` must stay at their defaults,
+Both must be set together, and `submodules`, `base-revision`, and `head-revision` must stay at their defaults,
 because the action checks out nothing in this mode.
 Any other combination fails immediately.
 
 ### Outputs
 
-| Name                | Description                                                          |
-| ------------------- | -------------------------------------------------------------------- |
-| `has-diff`          | `true` when at least one target file produces a diff PDF.            |
-| `head-artifact-url` | The uploaded head PDF artifact URL when artifact upload is enabled.  |
-| `diff-artifact-url` | The uploaded diff PDF artifact URL when a diff artifact is uploaded. |
+| Name                | Description                                                                      |
+| ------------------- | -------------------------------------------------------------------------------- |
+| `has-diff`          | `true` when at least one target file produces a diff PDF.                        |
+| `head-artifact-url` | URL of the uploaded head PDF artifact. Empty when `upload-artifacts` is `false`. |
+| `diff-artifact-url` | URL of the uploaded diff PDF artifact. Empty when no diff artifact was uploaded. |
 
 ### Bring Your Own Working Trees
 
-Set `head-dir` and `base-dir` when the action cannot check out the sources itself,
-for example when your submodules live under more than one owner and therefore need separate tokens.
+Set `base-dir` and `head-dir` when the action cannot check out the sources itself,
+for example when your repository and its submodules live under more than one owner and therefore need separate tokens.
 The action then builds and compares the directories you provide, and checks out nothing.
 
 Resolving the base revision is then up to you.
-For a pull request, compare against the merge-base rather than the base branch tip,
+For a PR, compare against the merge-base rather than the base branch tip,
 or the diff will also contain unrelated changes merged into the base branch in the meantime.
 
 ```yaml
-      - uses: actions/create-github-app-token@v3
+name: Generate Typst PDF diff
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  generate-typst-pdf-diff:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Generate GitHub App token
         id: app-token
+        uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: submodule-owner
           repositories: private-submodule
+          permission-contents: read
 
       - name: Resolve the merge-base
         id: merge-base
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_REPO: ${{ github.repository }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          sha=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}" --jq '.merge_base_commit.sha')
-          echo "sha=${sha}" >>"$GITHUB_OUTPUT"
+          sha="$(gh api "repos/{owner}/{repo}/compare/${PR_BASE_SHA}...${PR_HEAD_SHA}" --jq='.merge_base_commit.sha')"
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
 
-      - uses: actions/checkout@v7
+      - name: Check out the base revision
+        uses: actions/checkout@v7
         with:
-          path: head-src
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-
-      - uses: actions/checkout@v7
-        with:
-          path: base-src
           ref: ${{ steps.merge-base.outputs.sha }}
           persist-credentials: false
+          path: base-src
+
+      - name: Check out the head revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          path: head-src
 
       - name: Check out the required submodules
         env:
@@ -177,19 +243,19 @@ or the diff will also contain unrelated changes merged into the base branch in t
         run: |
           git config --global --add url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf git@github.com:
           git config --global --add url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf https://github.com/
-          for dir in head-src base-src; do
-            git -C "${dir}" submodule update --init --depth 1 private-submodule
+          for dir in base-src head-src; do
+            git -C "${dir}" submodule update --init --depth=1 private-submodule
           done
 
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.3.0
+        uses: conjikidow/typst-pdf-diff-action@v0.4.0
         with:
           target-files: paper/main.typ
-          head-dir: head-src
           base-dir: base-src
+          head-dir: head-src
 ```
 
-That example uses a single token.
+That example uses a single token for its submodules.
 When your submodules span several owners, qualify each rewrite with the owner so that the longest match wins.
 Identical prefixes resolve to whichever token was configured first,
 which silently sends one owner's token to another owner.
@@ -202,7 +268,7 @@ git config --global --add \
 ```
 
 The action writes its build output to `build/` in the workspace,
-so do not point `head-dir` or `base-dir` inside that directory.
+so do not point `base-dir` or `head-dir` inside that directory.
 
 > [!CAUTION]
 > The action cannot verify that the directories you supply hold the revisions you intended.
@@ -210,12 +276,19 @@ so do not point `head-dir` or `base-dir` inside that directory.
 ## How It Works
 
 1. Resolves the base and head revisions, and checks them out into separate directories.
-   Both steps are skipped when `head-dir` and `base-dir` are provided.
+   Both steps are skipped when `base-dir` and `head-dir` are provided.
 2. Installs Typst and `diff-pdf`.
 3. Builds PDFs for all `target-files` from both revisions.
 4. Generates diff PDFs with `diff-pdf`.
 5. Uploads head PDFs and diff PDFs as artifacts when enabled.
-6. Builds a Markdown summary and optionally updates a PR comment.
+6. Builds a Markdown summary and optionally posts a PR comment.
+
+## License
+
+Licensed under either of [MIT license](LICENSE-MIT) or [Apache License, Version 2.0](LICENSE-APACHE) at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this software by you,
+as defined in the Apache-2.0 license, shall be dually licensed as above, without any additional terms or conditions.
 
 ## Contributing & Feedback
 

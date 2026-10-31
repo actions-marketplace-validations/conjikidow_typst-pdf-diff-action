@@ -1,2 +1,15 @@
+[global]
+extend-enable = ["MD060", "MD070", "MD080", "MD083", "MD084", "MD087", "MD091", "MD095"]
+
 [MD013]
 line-length = 120
+reflow = true
+reflow-mode = "semantic-line-breaks"
+reflow-length-exemptions = true
+
+[MD044]
+names = ["GitHub", "GitHub-hosted", "Linux", "Markdown", "PDF", "PDFs", "Typst", "Ubuntu"]
+whole-words = true
+
+[MD060]
+style = "aligned"

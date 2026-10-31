@@ -1,18 +1,24 @@
 name: Test
 
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened]
+      - 'main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
 
 jobs:
 
@@ -22,26 +28,28 @@ jobs:
     name: Test explicit revisions
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     env:
-      BASE_REV: v0.1.0
-      HEAD_REV: v0.2.0
+      BASE_REVISION: 'v0.1.0'
+      HEAD_REVISION: 'v0.2.0'
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Compare two tagged revisions
         id: tagged
-        uses: ./
+        uses: $/
         with:
           target-files: missing.typ
-          base-ref: ${{ env.BASE_REV }}
-          head-ref: ${{ env.HEAD_REV }}
-          post-comment: 'false'
-          upload-artifacts: 'false'
+          base-revision: ${{ env.BASE_REVISION }}
+          head-revision: ${{ env.HEAD_REVISION }}
+          post-comment: false
+          upload-artifacts: false
 
       - name: Assert that the requested revisions were checked out
         env:
@@ -53,25 +61,27 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Compare the pull request against its merge-base
-        uses: ./
+        uses: $/
         with:
           target-files: missing.typ
-          post-comment: 'false'
-          upload-artifacts: 'false'
+          post-comment: false
+          upload-artifacts: false
 
       - name: Assert that the merge-base was used as the base revision
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash tests/assert-merge-base-revisions.sh
 
   test-supplied-working-trees:
@@ -80,7 +90,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -93,21 +103,21 @@ jobs:
 
       - name: Compare differing working trees
         id: differing
-        uses: ./
+        uses: $/
         with:
           target-files: sample.typ
-          head-dir: trees/head
           base-dir: trees/base
-          post-comment: 'false'
-          upload-artifacts: 'false'
+          head-dir: trees/head
+          post-comment: false
+          upload-artifacts: false
 
       - name: Assert that a diff was reported
         env:
           HAS_DIFF: ${{ steps.differing.outputs.has-diff }}
-          EXPECTED_HAS_DIFF: 'true'
+          EXPECTED_HAS_DIFF: true
         run: bash tests/assert-has-diff.sh
 
-      - name: Assert that no sources were checked out
+      - name: Assert that no sources were checked out (differing trees)
         run: bash tests/assert-no-checkout.sh
 
       - name: Prepare identical working trees
@@ -115,21 +125,21 @@ jobs:
 
       - name: Compare identical working trees
         id: identical
-        uses: ./
+        uses: $/
         with:
           target-files: sample.typ
-          head-dir: trees/head
           base-dir: trees/base
-          post-comment: 'false'
-          upload-artifacts: 'false'
+          head-dir: trees/head
+          post-comment: false
+          upload-artifacts: false
 
       - name: Assert that no diff was reported
         env:
           HAS_DIFF: ${{ steps.identical.outputs.has-diff }}
-          EXPECTED_HAS_DIFF: 'false'
+          EXPECTED_HAS_DIFF: false
         run: bash tests/assert-has-diff.sh
 
-      - name: Assert that no sources were checked out for identical trees
+      - name: Assert that no sources were checked out (identical trees)
         run: bash tests/assert-no-checkout.sh
 
   # Exercise the individual scripts, in the order the action runs them.
@@ -138,43 +148,49 @@ jobs:
     name: Test input validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Assert that invalid working tree inputs are rejected
+      - name: Assert that invalid inputs are rejected
         run: bash tests/assert-input-validation.sh
 
   test-display-revisions:
     name: Test display revisions
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Assert that display revisions are determined from the working trees
-        run: bash tests/assert-display-refs.sh
+        run: bash tests/assert-display-revisions.sh
 
   test-build-and-diff:
     name: Test build and diff
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install Typst
-        uses: typst-community/setup-typst@40d32bb6ccb235bd7f5164cb47cfd40a5ea3a314 # v5.2.0
+        uses: typst-community/setup-typst@fee4b65b091cc546f02ce3be15fad8760f38a108 # v5.3.0
 
       - name: Install PDF diff tools
         run: bash src/install-pdf-diff-tools.sh
@@ -186,9 +202,11 @@ jobs:
     name: Test comment body
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout the main repository
+      - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
