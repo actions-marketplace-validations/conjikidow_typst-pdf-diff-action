@@ -18,17 +18,18 @@ repos:
         args: [--autofix, --no-sort-keys]
 
   - repo: https://github.com/crate-ci/typos
-    rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b  # frozen: v1.51.1
+    rev: 276087d9a4f06398b3e04825487805e2d7375888  # frozen: v1.52.2
     hooks:
       - id: typos
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: 7c1739b6be770a7ccc8170a43993ccbb8e19dfb9  # frozen: v1.8.9
+    rev: eb5a34a798c45a534791de7aa408a25100554273  # frozen: v1.11.1
     hooks:
       - id: tombi-format
+        args: [--error-on-warnings]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: eaeb8abc646954face3eb41726f085385410f761  # frozen: v0.3.1
+    rev: 048965b9cf986f25ab963d388bc94cf44e381686  # frozen: v0.3.3
     hooks:
       - id: rumdl-check
         args: [--fix]
@@ -58,7 +59,7 @@ repos:
       - id: no-commit-to-branch
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: 7c1739b6be770a7ccc8170a43993ccbb8e19dfb9  # frozen: v1.8.9
+    rev: eb5a34a798c45a534791de7aa408a25100554273  # frozen: v1.11.1
     hooks:
       - id: tombi-lint
         args: [--error-on-warnings]

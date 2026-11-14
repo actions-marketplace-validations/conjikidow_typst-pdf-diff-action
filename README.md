@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.4.0
+        uses: conjikidow/typst-pdf-diff-action@v0.5.0
         with:
           target-files: main.typ
 ```
@@ -94,7 +94,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.4.0
+        uses: conjikidow/typst-pdf-diff-action@v0.5.0
         with:
           target-files: ${{ env.TYPST_TARGET_FILES }}
           submodules: recursive
@@ -150,7 +150,7 @@ which is why that example zeroes it with `permissions: {}`.
 
 > [!NOTE]
 > `post-comment: true` is intended for `pull_request` events.
-> On other events, the action skips the PR comment.
+> On other events, the action skips the PR comment, and the results are left in the job summary.
 
 #### Advanced Inputs
 
@@ -248,7 +248,7 @@ jobs:
           done
 
       - name: Generate Typst PDF diff
-        uses: conjikidow/typst-pdf-diff-action@v0.4.0
+        uses: conjikidow/typst-pdf-diff-action@v0.5.0
         with:
           target-files: paper/main.typ
           base-dir: base-src

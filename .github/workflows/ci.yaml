@@ -28,15 +28,15 @@ jobs:
     permissions:
       contents: read
     outputs:
-      github-actions: ${{ steps.changed-files.outputs.github_actions_any_changed }}
-      github-actions-ci: ${{ steps.changed-files.outputs.github_actions_ci_any_changed }}
-      pre-commit-config: ${{ steps.changed-files.outputs.pre_commit_config_any_changed }}
-      renovate-config: ${{ steps.changed-files.outputs.renovate_config_any_changed }}
-      json5: ${{ steps.changed-files.outputs.json5_any_changed }}
-      toml: ${{ steps.changed-files.outputs.toml_any_changed }}
-      yaml: ${{ steps.changed-files.outputs.yaml_any_changed }}
-      markdown: ${{ steps.changed-files.outputs.markdown_any_changed }}
-      shell: ${{ steps.changed-files.outputs.shell_any_changed }}
+      github-actions: ${{ steps.changed-files.outputs.github_actions_any_modified }}
+      github-actions-ci: ${{ steps.changed-files.outputs.github_actions_ci_any_modified }}
+      pre-commit-config: ${{ steps.changed-files.outputs.pre_commit_config_any_modified }}
+      renovate-config: ${{ steps.changed-files.outputs.renovate_config_any_modified }}
+      json5: ${{ steps.changed-files.outputs.json5_any_modified }}
+      toml: ${{ steps.changed-files.outputs.toml_any_modified }}
+      yaml: ${{ steps.changed-files.outputs.yaml_any_modified }}
+      markdown: ${{ steps.changed-files.outputs.markdown_any_modified }}
+      shell: ${{ steps.changed-files.outputs.shell_any_modified }}
 
     steps:
       - name: Check out the repository
@@ -49,6 +49,7 @@ jobs:
         id: changed-files
         uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
+          output_renamed_files_as_deleted_and_added: true
           files_yaml: |
             github_actions:
               - '.github/workflows/**'
@@ -94,9 +95,9 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: '0.13.6'
+          version: '0.13.7'
           enable-cache: false
 
       - name: Lint GitHub Actions
@@ -129,9 +130,9 @@ jobs:
           persist-credentials: false
 
       - name: Audit with zizmor
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
-          version: 'v1.31.1'
+          version: 'v1.32.0'
           advanced-security: false
           annotations: true
 
@@ -140,9 +141,9 @@ jobs:
           always()
           && github.event_name == 'push'
           && github.event.repository.private == false
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
-          version: 'v1.31.1'
+          version: 'v1.32.0'
           advanced-security: true
 
   validate-renovate-config:
@@ -165,12 +166,12 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Validate Renovate config
         env:
           LOG_FORMAT: json
-          RENOVATE_VERSION: '44.181.1'
+          RENOVATE_VERSION: '44.221.1'
         run: |
           npx --package="renovate@${RENOVATE_VERSION}" --yes renovate-config-validator \
             --strict --no-global .github/renovate.json5 \
@@ -239,16 +240,16 @@ jobs:
           persist-credentials: false
 
       - name: Install Tombi
-        uses: tombi-toml/setup-tombi@dbb85e6c7616772f590af0db4a7c455dfe61fec7 # v1.8.9
+        uses: tombi-toml/setup-tombi@309f61c909c0972a1f5ebc0cb5465913778010b5 # v1.11.1
         with:
-          version: '1.8.9'
+          version: '1.11.1'
 
       - name: Format TOML
-        run: tombi format
+        run: tombi format --error-on-warnings
 
       - name: Suggest TOML formatting
         if: github.event_name == 'pull_request'
-        uses: reviewdog/action-suggester@ac5ce6d94e35c00530447dc63c271e38e4fd36c6 # v1.26.3
+        uses: reviewdog/action-suggester@295fd4e5482381f33925c46ca5c2f66c69370267 # v1.27.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tool_name: tombi-format
@@ -279,9 +280,9 @@ jobs:
           persist-credentials: false
 
       - name: Install Tombi
-        uses: tombi-toml/setup-tombi@dbb85e6c7616772f590af0db4a7c455dfe61fec7 # v1.8.9
+        uses: tombi-toml/setup-tombi@309f61c909c0972a1f5ebc0cb5465913778010b5 # v1.11.1
         with:
-          version: '1.8.9'
+          version: '1.11.1'
 
       - name: Lint TOML
         run: tombi lint --error-on-warnings --diagnostics-format=github
@@ -304,9 +305,9 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: '0.13.6'
+          version: '0.13.7'
           enable-cache: false
 
       - name: Lint YAML
@@ -334,9 +335,9 @@ jobs:
           persist-credentials: false
 
       - name: Lint Markdown
-        uses: rvben/rumdl@9b8161e6124f1bde9d5c3dd0c9a36ceb559e1f53 # v0.3.1
+        uses: rvben/rumdl@dac508e6b2f52c1d869811d138ffc1ff2b9f6e71 # v0.3.3
         with:
-          version: '0.3.1'
+          version: '0.3.3'
           report-type: annotations
 
   format-shell-scripts:
@@ -369,7 +370,7 @@ jobs:
 
       - name: Suggest shell script formatting
         if: github.event_name == 'pull_request'
-        uses: reviewdog/action-suggester@ac5ce6d94e35c00530447dc63c271e38e4fd36c6 # v1.26.3
+        uses: reviewdog/action-suggester@295fd4e5482381f33925c46ca5c2f66c69370267 # v1.27.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tool_name: shfmt
@@ -400,9 +401,9 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: '0.13.6'
+          version: '0.13.7'
           enable-cache: false
 
       - name: Lint shell scripts
@@ -427,7 +428,7 @@ jobs:
           persist-credentials: false
 
       - name: Check spelling
-        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+        uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
 
   lint-commit-messages:
     name: Lint commit messages
@@ -481,7 +482,45 @@ jobs:
           persist-credentials: false
 
       - name: Run prek hooks
-        uses: j178/prek-action@af4d4fcb6922b8e6f65c0426947125fcc38794ce # v3.0.2
+        uses: j178/prek-action@44924fe9ef4a6f88253c4b6b1bf11c689d3ce53d # v3.1.0
         with:
-          prek-version: 'v0.5.7'
+          prek-version: 'v0.5.10'
           extra-args: --skip=no-commit-to-branch --all-files
+
+  check-ci-results:
+    name: Check CI results
+    needs:
+      - determine-changes
+      - lint-github-actions
+      - audit-zizmor
+      - validate-renovate-config
+      - validate-json5
+      - format-toml
+      - lint-toml
+      - lint-yaml
+      - lint-markdown
+      - format-shell-scripts
+      - lint-shell-scripts
+      - check-spelling
+      - lint-commit-messages
+      - run-prek-hooks
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check the job results
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          failed_jobs="$(jq --raw-output '
+              to_entries[]
+              | select(.value.result != "success" and .value.result != "skipped")
+              | "\(.key) finished with \(.value.result)."
+            ' <<< "${JOB_RESULTS}")"
+          if [[ -n ${failed_jobs} ]]; then
+            while IFS= read -r failed_job; do
+              echo "::error title=check-ci-results::${failed_job}"
+            done <<< "${failed_jobs}"
+            exit 1
+          fi
